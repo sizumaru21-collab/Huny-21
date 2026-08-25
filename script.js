@@ -1,9 +1,7 @@
-/* Huny — Phase 3: talk to the Audius API */
+/* Huny — Phase 4: real playback */
 
 const APP_NAME = 'huny-player';
 
-/* Audius runs on many independent servers ("hosts").
-   We ask for a working one, and fall back to known ones if that fails. */
 const Api = (() => {
   let hosts = [
     'https://discoveryprovider.audius.co',
@@ -40,6 +38,7 @@ const Api = (() => {
   return {
     trending: () => get('/v1/tracks/trending?limit=24'),
     search:   (q) => get(`/v1/tracks/search?query=${encodeURIComponent(q)}`),
+    streamUrl: (host, id) => `${host}/v1/tracks/${id}/stream?app_name=${APP_NAME}`,
   };
 })();
 
@@ -53,10 +52,30 @@ function escapeHtml(str){
   return d.innerHTML;
 }
 
-/* Draw a grid of song cards into any container */
-function renderGrid(container, tracks){
+/* ---------- PLAYER STATE ----------
+   These variables remember "what's going on right now":
+   which list of songs we're playing through, and which
+   song in that list is currently active. */
+let queue = [];
+let currentIndex = -1;
+let currentHost = '';
+
+const audio = document.getElementById('audio');
+const playBtn = document.getElementById('playBtn');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const seek = document.getElementById('seek');
+const currentTimeEl = document.getElementById('currentTime');
+const durationEl = document.getElementById('duration');
+const volume = document.getElementById('volume');
+const npArt = document.getElementById('npArt');
+const npTitle = document.getElementById('npTitle');
+const npArtist = document.getElementById('npArtist');
+
+/* Draw song cards, and make each one clickable */
+function renderGrid(container, tracks, host){
   container.innerHTML = '';
-  tracks.forEach((t) => {
+  tracks.forEach((t, i) => {
     const card = document.createElement('div');
     card.className = 'card';
     const art = artworkOf(t);
@@ -65,38 +84,19 @@ function renderGrid(container, tracks){
       <p class="title">${escapeHtml(t.title)}</p>
       <p class="artist">${escapeHtml(t.user?.name || 'Unknown artist')}</p>
     `;
+    // This is the new part: clicking a card sets it as "now playing"
+    card.addEventListener('click', () => {
+      queue = tracks;       // remember the whole list we clicked from
+      currentHost = host;   // remember which Audius server has these songs
+      loadTrack(i);         // set this specific song as current
+      audio.play();         // start playing it
+    });
     container.appendChild(card);
   });
 }
 
-/* Load trending songs when the page opens */
-const trendingGrid = document.getElementById('trendingGrid');
-Api.trending()
-  .then(({ data }) => renderGrid(trendingGrid, data))
-  .catch(() => { trendingGrid.innerHTML = '<p style="color:#8c8d90">Could not load trending songs. Refresh to retry.</p>'; });
-
-/* Search bar */
-const searchInput = document.getElementById('searchInput');
-const searchView = document.getElementById('searchView');
-const homeView = document.getElementById('homeView');
-const resultsGrid = document.getElementById('resultsGrid');
-const searchHeading = document.getElementById('searchHeading');
-
-let searchTimer;
-searchInput.addEventListener('input', () => {
-  clearTimeout(searchTimer);
-  const q = searchInput.value.trim();
-  if (!q) {
-    homeView.hidden = false;
-    searchView.hidden = true;
-    return;
-  }
-  searchTimer = setTimeout(() => {
-    homeView.hidden = true;
-    searchView.hidden = false;
-    searchHeading.textContent = `Results for "${q}"`;
-    Api.search(q)
-      .then(({ data }) => renderGrid(resultsGrid, data))
-      .catch(() => { resultsGrid.innerHTML = '<p style="color:#8c8d90">Search failed. Try again.</p>'; });
-  }, 400);
-});
+/* Load a track into the <audio> player and update the bottom bar */
+function loadTrack(i){
+  currentIndex = i;
+  const t = queue[i];
+  audio.src = Api.streamUrl(currentHost,
