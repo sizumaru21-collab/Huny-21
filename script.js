@@ -263,7 +263,13 @@ searchInput.addEventListener('input', function(){
     searchView.hidden = false;
     searchHeading.textContent = 'Results for "' + q + '"';
     Api.search(q)
-      .then(function(result){ renderGrid(resultsGrid, result.data, result.host); })
+      .then(function(result){
+        if (!result.data.length){
+          resultsGrid.innerHTML = '<p style="color:#8c8d90">No results for "' + q + '". Audius mainly features independent/emerging artists rather than major-label commercial releases, so mainstream Bollywood/film tracks often will not appear. Try an independent artist name or a genre like "lofi" or "hindi indie".</p>';
+        } else {
+          renderGrid(resultsGrid, result.data, result.host);
+        }
+      })
       .catch(function(){ resultsGrid.innerHTML = '<p style="color:#8c8d90">Search failed. Try again.</p>'; });
   }, 400);
 });
