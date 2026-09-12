@@ -1,275 +1,175 @@
-/* ================= HUNY - full player script ================= */
+:root{
+  --font-ui: -apple-system, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  --bar-h: 90px;
+  --side-w: 220px;
+}
 
-const APP_NAME = 'huny-player';
+body[data-theme="dark"]{
+  --bg: #0a0a0b; --panel: #161719; --panel-2: #202124;
+  --line: #2a2b2e; --text: #f2f2f0; --text-dim: #8c8d90;
+  --accent: #ffffff; --accent-on: #0a0a0b;
+}
+body[data-theme="light"]{
+  --bg: #f2f1ee; --panel: #ffffff; --panel-2: #eceae5;
+  --line: #ddd9d1; --text: #171716; --text-dim: #75736c;
+  --accent: #111111; --accent-on: #ffffff;
+}
 
-const Api = (() => {
-  let hosts = [
-    'https://discoveryprovider.audius.co',
-    'https://discoveryprovider2.audius.co',
-    'https://discoveryprovider3.audius.co'
-  ];
-  let hostsFetched = false;
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; }
+body{ background: var(--bg); color: var(--text); font-family: var(--font-ui); }
 
-  async function refreshHosts(){
-    if (hostsFetched) return;
-    try {
-      const res = await fetch('https://api.audius.co');
-      const json = await res.json();
-      if (Array.isArray(json.data) && json.data.length) hosts = json.data;
-    } catch (e) {}
-    hostsFetched = true;
+.app{
+  display:grid;
+  grid-template-columns: var(--side-w) 1fr;
+  grid-template-rows: 1fr var(--bar-h);
+  height:100vh;
+}
+
+.sidebar{
+  border-right:1px solid var(--line);
+  padding: 22px 16px;
+  display:flex; flex-direction:column;
+}
+.brand{ display:flex; align-items:baseline; gap:8px; padding: 0 8px 26px; }
+.brand-mark{
+  font-weight:700; font-size:13px; width:26px; height:26px;
+  border-radius:8px; border:1px solid var(--line);
+  display:inline-flex; align-items:center; justify-content:center;
+}
+.brand-name{ font-size:12px; letter-spacing:.35em; text-transform:uppercase; color: var(--text-dim); }
+
+.nav{ display:flex; flex-direction:column; gap:2px; flex:1; }
+.nav-item{
+  background:none; border:none; color: var(--text-dim);
+  font-size:13.5px; text-align:left; padding:10px; border-radius:10px; cursor:pointer;
+}
+.nav-item:hover, .nav-item.active{ background: var(--panel-2); color: var(--text); }
+
+.theme-toggle{
+  width:44px; height:24px; border-radius:999px; border:1px solid var(--line);
+  background: var(--panel-2); cursor:pointer; position:relative; margin:8px;
+}
+.theme-toggle .dot{
+  position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
+  background: var(--accent); transition: transform .25s ease;
+}
+body[data-theme="light"] .theme-toggle .dot{ transform: translateX(20px); }
+
+.main{ overflow-y:auto; padding: 26px 34px 40px; }
+.search-box{
+  background: var(--panel); border:1px solid var(--line);
+  border-radius: 999px; padding: 10px 18px; max-width: 460px;
+}
+.search-box input{
+  border:none; background:none; outline:none; color: var(--text);
+  font-size:14px; width:100%;
+}
+.view h2{ font-size:16px; font-weight:600; margin: 20px 0 16px; }
+
+.grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 20px;
+}
+.card{
+  background: var(--panel); border:1px solid var(--line);
+  border-radius:14px; padding: 12px; cursor:pointer;
+}
+.card:hover{ background: var(--panel-2); }
+.card .thumb{
+  width:100%; aspect-ratio:1/1; border-radius:10px; overflow:hidden;
+  background: linear-gradient(155deg, var(--panel-2), var(--bg)); margin-bottom:10px;
+}
+.card .thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+.card .title{ font-size:13px; font-weight:600; margin:0 0 3px; }
+.card .artist{ font-size:12px; color: var(--text-dim); margin:0; }
+
+.player-bar{
+  grid-column: 1 / 3;
+  border-top:1px solid var(--line);
+  background: var(--panel);
+  display:grid;
+  grid-template-columns: 240px 1fr 160px;
+  align-items:center;
+  padding: 0 20px;
+  gap: 16px;
+}
+.np{ display:flex; align-items:center; gap:10px; min-width:0; }
+.np-art{ width:48px; height:48px; border-radius:8px; object-fit:cover; background: var(--panel-2); flex-shrink:0; }
+.np-meta{ display:flex; flex-direction:column; min-width:0; overflow:hidden; }
+.np-title{ font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.np-artist{ font-size:12px; color: var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.player-center{ display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0; }
+.controls{ display:flex; align-items:center; gap:6px; }
+.controls button{
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.03em;
+  cursor:pointer;
+  padding: 7px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.controls button:hover{ background: var(--line); }
+#playBtn{
+  background: var(--accent);
+  color: var(--accent-on);
+  padding: 8px 18px;
+}
+#likeBtn{
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size:10px;
+  font-weight:600;
+  cursor:pointer;
+  padding: 5px 10px;
+  border-radius: 999px;
+  flex-shrink:0;
+  margin-left: 6px;
+}
+
+.progress-row{ display:flex; align-items:center; gap:8px; width:100%; max-width:520px; }
+.time{ font-size:10.5px; color: var(--text-dim); width:32px; flex-shrink:0; }
+
+.seek{ flex:1; height:3px; }
+.player-right{ display:flex; align-items:center; gap:8px; justify-self:end; }
+.volume{ max-width:100px; }
+
+@media (max-width: 800px){
+  .app{
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
   }
-
-  async function get(path){
-    await refreshHosts();
-    let lastErr;
-    for (const host of hosts){
-      try {
-        const url = host + path + (path.includes('?') ? '&' : '?') + 'app_name=' + APP_NAME;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const json = await res.json();
-        return { data: json.data, host: host };
-      } catch (e) { lastErr = e; }
-    }
-    throw lastErr || new Error('No Audius host reachable');
+  .sidebar{
+    flex-direction: row;
+    align-items: center;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    padding: 12px 16px;
+    gap: 16px;
+    overflow-x: auto;
   }
+  .brand{ padding: 0; flex-shrink: 0; }
+  .nav{ flex-direction: row; flex: none; gap: 6px; }
+  .theme-toggle{ margin: 0 0 0 auto; flex-shrink: 0; }
+  .main{ padding: 18px 16px 30px; }
+  .grid{ grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
 
-  return {
-    trending: function(){ return get('/v1/tracks/trending?limit=24'); },
-    search: function(q){ return get('/v1/tracks/search?query=' + encodeURIComponent(q)); },
-    streamUrl: function(host, id){ return host + '/v1/tracks/' + id + '/stream?app_name=' + APP_NAME; },
-    allHosts: function(){ return hosts; }
-  };
-})();
-
-function artworkOf(track){
-  var art = track.artwork || {};
-  return art['480x480'] || art['150x150'] || '';
-}
-function escapeHtml(str){
-  var d = document.createElement('div');
-  d.textContent = str || '';
-  return d.innerHTML;
-}
-
-var queue = [];
-var currentIndex = -1;
-var currentHost = '';
-var hostAttempt = 0;
-var isShuffled = false;
-var repeatMode = 0;
-var liked = JSON.parse(localStorage.getItem('huny-liked') || '[]');
-
-var audio = document.getElementById('audio');
-var playBtn = document.getElementById('playBtn');
-var prevBtn = document.getElementById('prevBtn');
-var nextBtn = document.getElementById('nextBtn');
-var shuffleBtn = document.getElementById('shuffleBtn');
-var repeatBtn = document.getElementById('repeatBtn');
-var likeBtn = document.getElementById('likeBtn');
-var seek = document.getElementById('seek');
-var currentTimeEl = document.getElementById('currentTime');
-var durationEl = document.getElementById('duration');
-var volume = document.getElementById('volume');
-var npArt = document.getElementById('npArt');
-var npTitle = document.getElementById('npTitle');
-var npArtist = document.getElementById('npArtist');
-var themeToggle = document.getElementById('themeToggle');
-
-var trendingGrid = document.getElementById('trendingGrid');
-var resultsGrid = document.getElementById('resultsGrid');
-var likedGrid = document.getElementById('likedGrid');
-var searchInput = document.getElementById('searchInput');
-var searchView = document.getElementById('searchView');
-var homeView = document.getElementById('homeView');
-var likedView = document.getElementById('likedView');
-var searchHeading = document.getElementById('searchHeading');
-
-var statusMsg = document.createElement('p');
-statusMsg.style.cssText = 'color:#ff8a8a;font-size:11px;grid-column:1/4;text-align:center;';
-document.querySelector('.player-bar').appendChild(statusMsg);
-
-function renderGrid(container, tracks, host){
-  container.innerHTML = '';
-  tracks.forEach(function(t, i){
-    var card = document.createElement('div');
-    card.className = 'card';
-    var art = artworkOf(t);
-    var artHtml = art ? '<img src="' + art + '" alt="">' : '';
-    card.innerHTML = '<div class="thumb">' + artHtml + '</div>' +
-      '<p class="title">' + escapeHtml(t.title) + '</p>' +
-      '<p class="artist">' + escapeHtml(t.user && t.user.name ? t.user.name : 'Unknown artist') + '</p>';
-    card.addEventListener('click', function(){
-      queue = tracks;
-      currentHost = host;
-      hostAttempt = 0;
-      loadTrack(i);
-      audio.play().catch(function(){});
-    });
-    container.appendChild(card);
-  });
-}
-
-function loadTrack(i){
-  currentIndex = i;
-  var t = queue[i];
-  statusMsg.textContent = '';
-  audio.src = Api.streamUrl(currentHost, t.id);
-  npTitle.textContent = t.title;
-  npArtist.textContent = t.user && t.user.name ? t.user.name : 'Unknown artist';
-  npArt.src = artworkOf(t);
-  refreshLikeButton();
-}
-
-audio.addEventListener('error', function(){
-  var hosts = Api.allHosts();
-  hostAttempt++;
-  if (hostAttempt < hosts.length && queue[currentIndex]){
-    currentHost = hosts[hostAttempt];
-    statusMsg.textContent = 'That server was down, trying another...';
-    audio.src = Api.streamUrl(currentHost, queue[currentIndex].id);
-    audio.play().catch(function(){});
-  } else {
-    statusMsg.textContent = 'This track is unavailable right now. Try another song.';
+  .player-bar{
+    grid-column: 1 / 2;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    padding: 10px 14px;
+    gap: 8px;
+    height: auto;
   }
-});
-
-playBtn.addEventListener('click', function(){
-  if (currentIndex === -1) return;
-  if (audio.paused) audio.play().catch(function(){}); else audio.pause();
-});
-audio.addEventListener('play', function(){ playBtn.textContent = 'PAUSE'; });
-audio.addEventListener('pause', function(){ playBtn.textContent = 'PLAY'; });
-
-function step(direction){
-  if (!queue.length) return;
-  var next;
-  if (isShuffled){
-    next = Math.floor(Math.random() * queue.length);
-  } else {
-    next = currentIndex + direction;
-    if (next < 0) next = queue.length - 1;
-    if (next >= queue.length) next = 0;
-  }
-  hostAttempt = 0;
-  loadTrack(next);
-  audio.play().catch(function(){});
+  .np{ justify-content: flex-start; }
+  .player-right{ justify-self: center; }
+  .controls button{ font-size:10px; padding: 6px 9px; }
 }
-prevBtn.addEventListener('click', function(){ step(-1); });
-nextBtn.addEventListener('click', function(){ step(1); });
-
-audio.addEventListener('ended', function(){
-  if (repeatMode === 2) { audio.currentTime = 0; audio.play(); return; }
-  step(1);
-});
-
-shuffleBtn.addEventListener('click', function(){
-  isShuffled = !isShuffled;
-  shuffleBtn.style.opacity = isShuffled ? '1' : '0.5';
-});
-
-var repeatLabels = ['Repeat: off', 'Repeat: all', 'Repeat: one'];
-repeatBtn.addEventListener('click', function(){
-  repeatMode = (repeatMode + 1) % 3;
-  repeatBtn.title = repeatLabels[repeatMode];
-  repeatBtn.style.opacity = repeatMode === 0 ? '0.5' : '1';
-});
-
-audio.addEventListener('loadedmetadata', function(){
-  seek.max = audio.duration || 0;
-  durationEl.textContent = formatTime(audio.duration);
-});
-var isSeeking = false;
-audio.addEventListener('timeupdate', function(){
-  if (!isSeeking) seek.value = audio.currentTime;
-  currentTimeEl.textContent = formatTime(audio.currentTime);
-});
-seek.addEventListener('input', function(){ isSeeking = true; });
-seek.addEventListener('change', function(){ audio.currentTime = seek.value; isSeeking = false; });
-
-function formatTime(sec){
-  if (!sec && sec !== 0) return '0:00';
-  sec = Math.floor(sec);
-  var m = Math.floor(sec / 60);
-  var s = String(sec % 60).padStart(2, '0');
-  return m + ':' + s;
-}
-volume.addEventListener('input', function(){ audio.volume = volume.value; });
-
-function isTrackLiked(track){
-  return liked.some(function(t){ return t.id === track.id; });
-}
-function refreshLikeButton(){
-  var t = queue[currentIndex];
-  likeBtn.textContent = (t && isTrackLiked(t)) ? 'LIKED' : 'LIKE';
-}
-likeBtn.addEventListener('click', function(){
-  var t = queue[currentIndex];
-  if (!t) return;
-  if (isTrackLiked(t)) {
-    liked = liked.filter(function(x){ return x.id !== t.id; });
-  } else {
-    liked.push(t);
-  }
-  localStorage.setItem('huny-liked', JSON.stringify(liked));
-  refreshLikeButton();
-  if (!likedView.hidden) renderGrid(likedGrid, liked, currentHost);
-});
-
-var navItems = document.querySelectorAll('.nav-item');
-navItems.forEach(function(btn){
-  btn.addEventListener('click', function(){
-    navItems.forEach(function(b){ b.classList.remove('active'); });
-    btn.classList.add('active');
-    var view = btn.getAttribute('data-view');
-    homeView.hidden = view !== 'home';
-    searchView.hidden = view !== 'search';
-    likedView.hidden = view !== 'liked';
-    if (view === 'liked') renderGrid(likedGrid, liked, currentHost);
-  });
-});
-
-document.body.setAttribute('data-theme', localStorage.getItem('huny-theme') || 'dark');
-themeToggle.addEventListener('click', function(){
-  var current = document.body.getAttribute('data-theme');
-  var next = current === 'dark' ? 'light' : 'dark';
-  document.body.setAttribute('data-theme', next);
-  localStorage.setItem('huny-theme', next);
-});
-
-document.addEventListener('keydown', function(e){
-  if (e.target.tagName === 'INPUT') return;
-  if (e.code === 'Space'){
-    e.preventDefault();
-    if (currentIndex === -1) return;
-    if (audio.paused) audio.play(); else audio.pause();
-  }
-  if (e.code === 'ArrowRight') step(1);
-  if (e.code === 'ArrowLeft') step(-1);
-});
-
-Api.trending()
-  .then(function(result){ renderGrid(trendingGrid, result.data, result.host); })
-  .catch(function(){ trendingGrid.innerHTML = '<p style="color:#8c8d90">Could not load trending songs. Refresh to retry.</p>'; });
-
-var searchTimer;
-searchInput.addEventListener('input', function(){
-  clearTimeout(searchTimer);
-  var q = searchInput.value.trim();
-  if (!q) { homeView.hidden = false; searchView.hidden = true; return; }
-  searchTimer = setTimeout(function(){
-    homeView.hidden = true;
-    searchView.hidden = false;
-    searchHeading.textContent = 'Results for "' + q + '"';
-    Api.search(q)
-      .then(function(result){
-        if (!result.data.length){
-          resultsGrid.innerHTML = '<p style="color:#8c8d90">No results for "' + q + '". Audius mainly features independent/emerging artists rather than major-label commercial releases, so mainstream Bollywood/film tracks often will not appear. Try an independent artist name or a genre like "lofi" or "hindi indie".</p>';
-        } else {
-          renderGrid(resultsGrid, result.data, result.host);
-        }
-      })
-      .catch(function(){ resultsGrid.innerHTML = '<p style="color:#8c8d90">Search failed. Try again.</p>'; });
-  }, 400);
-});
