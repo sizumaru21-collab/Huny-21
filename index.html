@@ -31,7 +31,7 @@
   <main class="main">
     <div class="topbar">
       <div class="search-box">
-        <input id="searchInput" placeholder="Search any song or artist…" autocomplete="off">
+        <input id="searchInput" placeholder="Search any song or artist..." autocomplete="off">
       </div>
     </div>
 
@@ -57,3 +57,32 @@
       <div class="np-meta">
         <span id="npTitle" class="np-title">Nothing playing</span>
         <span id="npArtist" class="np-artist">Search for a song to start</span>
+      </div>
+      <button id="likeBtn" title="Like">LIKE</button>
+    </div>
+
+    <div class="player-center">
+      <div class="controls">
+        <button id="shuffleBtn" title="Shuffle">SHUF</button>
+        <button id="prevBtn">PREV</button>
+        <button id="playBtn">PLAY</button>
+        <button id="nextBtn">NEXT</button>
+        <button id="repeatBtn" title="Repeat">REP</button>
+      </div>
+      <div class="progress-row">
+        <span id="currentTime" class="time">0:00</span>
+        <input id="seek" class="seek" type="range" min="0" max="100" value="0">
+        <span id="duration" class="time">0:00</span>
+      </div>
+    </div>
+
+    <div class="player-right">
+      <input id="volume" class="seek volume" type="range" min="0" max="1" step="0.01" value="1">
+    </div>
+  </footer>
+</div>
+
+<audio id="audio"></audio>
+<script src="script.js?v=5"></script>
+</body>
+</html>
