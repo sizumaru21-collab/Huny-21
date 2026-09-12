@@ -45,6 +45,14 @@ Just download the three files and open `index.html` in your browser — no insta
 3. Go to **Settings → Pages** → set Source to your `main` branch, folder `/ (root)`
 4. Your site goes live at `https://<your-username>.github.io/<repo-name>/`
 
+## Support
+
+If you enjoy Huny, consider buying me a coffee ☕
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white)](https://www.buymeacoffee.com/yourusername)
+
 ---
 
 Built as a learning project — from zero to a working, deployed app, one phase at a time.
+
+— MD.
