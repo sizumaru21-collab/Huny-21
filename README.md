@@ -49,7 +49,7 @@ Just download the three files and open `index.html` in your browser — no insta
 
 If you enjoy Huny, consider buying me a coffee ☕
 
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white)](https://www.buymeacoffee.com/yourusername)
+[![Buy Me a Coffee] MD.❤️
 
 ---
 
