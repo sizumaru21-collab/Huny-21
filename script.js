@@ -1,129 +1,124 @@
 const APP_NAME = 'huny-player';
 
 const Api = (() => {
-let hosts = [
-'https://discoveryprovider.audius.co',
-'https://discoveryprovider2.audius.co',
-'https://discoveryprovider3.audius.co'
-];
+  let hosts = [
+    'https://discoveryprovider.audius.co',
+    'https://discoveryprovider2.audius.co',
+    'https://discoveryprovider3.audius.co'
+  ];
 
-let hostsFetched = false;
+  let hostsFetched = false;
 
-async function refreshHosts() {
-if (hostsFetched) return;
+  async function refreshHosts() {
+    if (hostsFetched) return;
 
-```
-try {
-  const res = await fetch('https://api.audius.co');
-  const json = await res.json();
+    try {
+      const res = await fetch('https://api.audius.co');
+      const json = await res.json();
 
-  if (Array.isArray(json.data) && json.data.length) {
-    hosts = json.data;
-  }
-} catch (e) {
-  // Keep the fallback hosts above.
-}
-
-hostsFetched = true;
-```
-
-}
-
-async function get(path) {
-await refreshHosts();
-
-```
-let lastErr;
-
-for (const host of hosts) {
-  try {
-    const url =
-      host +
-      path +
-      (path.includes('?') ? '&' : '?') +
-      'app_name=' +
-      APP_NAME;
-
-    const res = await fetch(url);
-
-    if (!res.ok) {
-      throw new Error('HTTP ' + res.status);
+      if (Array.isArray(json.data) && json.data.length) {
+        hosts = json.data;
+      }
+    } catch (e) {
+      // Keep fallback hosts if discovery fails.
     }
 
-    const json = await res.json();
+    hostsFetched = true;
+  }
 
-    return {
-      data: json.data,
-      host: host
-    };
+  async function get(path) {
+    await refreshHosts();
+
+    let lastErr;
+
+    for (const host of hosts) {
+      try {
+        const url =
+          host +
+          path +
+          (path.includes('?') ? '&' : '?') +
+          'app_name=' +
+          APP_NAME;
+
+        const res = await fetch(url);
+
+        if (!res.ok) {
+          throw new Error('HTTP ' + res.status);
+        }
+
+        const json = await res.json();
+
+        return {
+          data: json.data,
+          host: host
+        };
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+
+    throw lastErr || new Error('No Audius host reachable');
+  }
+
+  return {
+    trending: function () {
+      return get('/v1/tracks/trending?limit=24');
+    },
+
+    search: function (q) {
+      return get(
+        '/v1/tracks/search?query=' +
+        encodeURIComponent(q)
+      );
+    },
+
+    streamUrl: function (host, id) {
+      return (
+        host +
+        '/v1/tracks/' +
+        id +
+        '/stream?app_name=' +
+        APP_NAME
+      );
+    },
+
+    allHosts: function () {
+      return hosts;
+    }
+  };
+})();
+
+
+function artworkOf(track) {
+  const art = track.artwork || {};
+
+  return (
+    art['480x480'] ||
+    art['150x150'] ||
+    ''
+  );
+}
+
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+
+function safeLoadLiked() {
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem('huny-liked') || '[]'
+    );
+
+    return Array.isArray(saved) ? saved : [];
   } catch (e) {
-    lastErr = e;
+    return [];
   }
 }
 
-throw lastErr || new Error('No Audius host reachable');
-```
-
-}
-
-return {
-trending: function () {
-return get('/v1/tracks/trending?limit=24');
-},
-
-```
-search: function (q) {
-  return get('/v1/tracks/search?query=' + encodeURIComponent(q));
-},
-
-streamUrl: function (host, id) {
-  return (
-    host +
-    '/v1/tracks/' +
-    id +
-    '/stream?app_name=' +
-    APP_NAME
-  );
-},
-
-allHosts: function () {
-  return hosts;
-}
-```
-
-};
-})();
-
-function artworkOf(track) {
-const art = track.artwork || {};
-
-return (
-art['480x480'] ||
-art['150x150'] ||
-''
-);
-}
-
-function escapeHtml(str) {
-const d = document.createElement('div');
-d.textContent = str || '';
-return d.innerHTML;
-}
-
-function safeLoadLiked() {
-try {
-const saved = JSON.parse(
-localStorage.getItem('huny-liked') || '[]'
-);
-
-```
-return Array.isArray(saved) ? saved : [];
-```
-
-} catch (e) {
-return [];
-}
-}
 
 let queue = [];
 let currentIndex = -1;
@@ -134,6 +129,7 @@ let isShuffled = false;
 let repeatMode = 0;
 
 let liked = safeLoadLiked();
+
 
 const audio = document.getElementById('audio');
 
@@ -170,565 +166,543 @@ const likedView = document.getElementById('likedView');
 
 const searchHeading = document.getElementById('searchHeading');
 
-/*
-Status message
 
-We create it inside the player center instead of
-adding another grid item to the player bar.
-*/
 const statusMsg = document.createElement('p');
 
 statusMsg.id = 'statusMsg';
 
 statusMsg.style.cssText =
-'margin:0;min-height:14px;color:#ff8a8a;font-size:11px;text-align:center;';
+  'margin:0;min-height:14px;color:#ff8a8a;font-size:11px;text-align:center;';
 
 document.querySelector('.player-center').appendChild(statusMsg);
 
+
 function renderGrid(container, tracks, host) {
-container.innerHTML = '';
+  container.innerHTML = '';
 
-if (!tracks || !tracks.length) {
-return;
+  if (!tracks || !tracks.length) {
+    return;
+  }
+
+  tracks.forEach(function (t, i) {
+    const card = document.createElement('div');
+
+    card.className = 'card';
+
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb';
+
+    const art = artworkOf(t);
+
+    if (art) {
+      const img = document.createElement('img');
+
+      img.src = art;
+      img.alt = '';
+      img.loading = 'lazy';
+
+      img.onerror = function () {
+        img.style.display = 'none';
+      };
+
+      thumb.appendChild(img);
+    }
+
+    const title = document.createElement('p');
+
+    title.className = 'title';
+    title.textContent = t.title || 'Untitled';
+
+    const artist = document.createElement('p');
+
+    artist.className = 'artist';
+    artist.textContent =
+      t.user && t.user.name
+        ? t.user.name
+        : 'Unknown artist';
+
+    card.appendChild(thumb);
+    card.appendChild(title);
+    card.appendChild(artist);
+
+    card.addEventListener('click', function () {
+      queue = tracks;
+      currentHost = host;
+      hostAttempt = 0;
+
+      loadTrack(i);
+
+      audio.play().catch(function () {});
+    });
+
+    container.appendChild(card);
+  });
 }
 
-tracks.forEach(function (t, i) {
-const card = document.createElement('div');
-
-```
-card.className = 'card';
-
-const thumb = document.createElement('div');
-thumb.className = 'thumb';
-
-const art = artworkOf(t);
-
-if (art) {
-  const img = document.createElement('img');
-
-  img.src = art;
-  img.alt = '';
-
-  img.loading = 'lazy';
-
-  img.onerror = function () {
-    img.style.display = 'none';
-  };
-
-  thumb.appendChild(img);
-}
-
-const title = document.createElement('p');
-
-title.className = 'title';
-title.textContent = t.title || 'Untitled';
-
-const artist = document.createElement('p');
-
-artist.className = 'artist';
-artist.textContent =
-  t.user && t.user.name
-    ? t.user.name
-    : 'Unknown artist';
-
-card.appendChild(thumb);
-card.appendChild(title);
-card.appendChild(artist);
-
-card.addEventListener('click', function () {
-  queue = tracks;
-  currentHost = host;
-  hostAttempt = 0;
-
-  loadTrack(i);
-
-  audio.play().catch(function () {});
-});
-
-container.appendChild(card);
-```
-
-});
-}
 
 function loadTrack(i) {
-if (!queue[i]) return;
+  if (!queue[i]) return;
 
-currentIndex = i;
+  currentIndex = i;
 
-const t = queue[i];
+  const t = queue[i];
 
-statusMsg.textContent = '';
+  statusMsg.textContent = '';
 
-audio.src = Api.streamUrl(
-currentHost,
-t.id
-);
+  audio.src = Api.streamUrl(
+    currentHost,
+    t.id
+  );
 
-npTitle.textContent =
-t.title || 'Untitled';
+  npTitle.textContent =
+    t.title || 'Untitled';
 
-npArtist.textContent =
-t.user && t.user.name
-? t.user.name
-: 'Unknown artist';
+  npArtist.textContent =
+    t.user && t.user.name
+      ? t.user.name
+      : 'Unknown artist';
 
-const art = artworkOf(t);
+  const art = artworkOf(t);
 
-if (art) {
-npArt.src = art;
-} else {
-npArt.removeAttribute('src');
+  if (art) {
+    npArt.src = art;
+  } else {
+    npArt.removeAttribute('src');
+  }
+
+  refreshLikeButton();
 }
 
-refreshLikeButton();
-}
 
 audio.addEventListener('error', function () {
-const hosts = Api.allHosts();
+  const hosts = Api.allHosts();
 
-hostAttempt++;
+  hostAttempt++;
 
-if (
-hostAttempt < hosts.length &&
-queue[currentIndex]
-) {
-currentHost = hosts[hostAttempt];
+  if (
+    hostAttempt < hosts.length &&
+    queue[currentIndex]
+  ) {
+    currentHost = hosts[hostAttempt];
 
-```
-statusMsg.textContent =
-  'That server was down, trying another...';
+    statusMsg.textContent =
+      'That server was down, trying another...';
 
-audio.src = Api.streamUrl(
-  currentHost,
-  queue[currentIndex].id
-);
+    audio.src = Api.streamUrl(
+      currentHost,
+      queue[currentIndex].id
+    );
 
-audio.play().catch(function () {});
-```
-
-} else {
-statusMsg.textContent =
-'This track is unavailable right now. Try another song.';
-}
+    audio.play().catch(function () {});
+  } else {
+    statusMsg.textContent =
+      'This track is unavailable right now. Try another song.';
+  }
 });
+
 
 playBtn.addEventListener('click', function () {
-if (currentIndex === -1) return;
+  if (currentIndex === -1) return;
 
-if (audio.paused) {
-audio.play().catch(function () {});
-} else {
-audio.pause();
-}
+  if (audio.paused) {
+    audio.play().catch(function () {});
+  } else {
+    audio.pause();
+  }
 });
+
 
 audio.addEventListener('play', function () {
-playBtn.textContent = 'PAUSE';
+  playBtn.textContent = 'PAUSE';
 });
+
 
 audio.addEventListener('pause', function () {
-playBtn.textContent = 'PLAY';
+  playBtn.textContent = 'PLAY';
 });
+
 
 function step(direction) {
-if (!queue.length) return;
+  if (!queue.length) return;
 
-let next;
+  let next;
 
-if (isShuffled) {
-if (queue.length === 1) {
-next = 0;
-} else {
-do {
-next = Math.floor(
-Math.random() * queue.length
-);
-} while (next === currentIndex);
+  if (isShuffled) {
+    if (queue.length === 1) {
+      next = 0;
+    } else {
+      do {
+        next = Math.floor(
+          Math.random() * queue.length
+        );
+      } while (next === currentIndex);
+    }
+  } else {
+    next = currentIndex + direction;
+
+    if (next < 0) {
+      next = queue.length - 1;
+    }
+
+    if (next >= queue.length) {
+      next = 0;
+    }
+  }
+
+  hostAttempt = 0;
+
+  loadTrack(next);
+
+  audio.play().catch(function () {});
 }
-} else {
-next = currentIndex + direction;
 
-```
-if (next < 0) {
-  next = queue.length - 1;
-}
-
-if (next >= queue.length) {
-  next = 0;
-}
-```
-
-}
-
-hostAttempt = 0;
-
-loadTrack(next);
-
-audio.play().catch(function () {});
-}
 
 prevBtn.addEventListener('click', function () {
-step(-1);
+  step(-1);
 });
+
 
 nextBtn.addEventListener('click', function () {
-step(1);
+  step(1);
 });
+
 
 audio.addEventListener('ended', function () {
-/*
-Repeat One
-*/
-if (repeatMode === 2) {
-audio.currentTime = 0;
+  if (repeatMode === 2) {
+    audio.currentTime = 0;
 
-```
-audio.play().catch(function () {});
+    audio.play().catch(function () {});
 
-return;
-```
+    return;
+  }
 
-}
+  if (repeatMode === 1) {
+    step(1);
 
-/*
-Repeat All
-*/
-if (repeatMode === 1) {
-step(1);
+    return;
+  }
 
-```
-return;
-```
-
-}
-
-/*
-Repeat Off
-
-```
-Stop when the final track finishes.
-```
-
-*/
-if (currentIndex < queue.length - 1) {
-step(1);
-}
+  if (currentIndex < queue.length - 1) {
+    step(1);
+  }
 });
+
 
 shuffleBtn.addEventListener('click', function () {
-isShuffled = !isShuffled;
+  isShuffled = !isShuffled;
 
-shuffleBtn.style.opacity =
-isShuffled ? '1' : '0.5';
+  shuffleBtn.style.opacity =
+    isShuffled ? '1' : '0.5';
 });
+
 
 const repeatLabels = [
-'Repeat: off',
-'Repeat: all',
-'Repeat: one'
+  'Repeat: off',
+  'Repeat: all',
+  'Repeat: one'
 ];
 
+
 repeatBtn.addEventListener('click', function () {
-repeatMode =
-(repeatMode + 1) % 3;
+  repeatMode =
+    (repeatMode + 1) % 3;
 
-repeatBtn.title =
-repeatLabels[repeatMode];
+  repeatBtn.title =
+    repeatLabels[repeatMode];
 
-repeatBtn.style.opacity =
-repeatMode === 0 ? '0.5' : '1';
+  repeatBtn.style.opacity =
+    repeatMode === 0 ? '0.5' : '1';
 });
+
 
 audio.addEventListener('loadedmetadata', function () {
-if (Number.isFinite(audio.duration)) {
-seek.max = audio.duration;
+  if (Number.isFinite(audio.duration)) {
+    seek.max = audio.duration;
 
-```
-durationEl.textContent =
-  formatTime(audio.duration);
-```
-
-}
+    durationEl.textContent =
+      formatTime(audio.duration);
+  }
 });
+
 
 let isSeeking = false;
 
-audio.addEventListener('timeupdate', function () {
-if (!isSeeking) {
-seek.value = audio.currentTime;
-}
 
-currentTimeEl.textContent =
-formatTime(audio.currentTime);
+audio.addEventListener('timeupdate', function () {
+  if (!isSeeking) {
+    seek.value = audio.currentTime;
+  }
+
+  currentTimeEl.textContent =
+    formatTime(audio.currentTime);
 });
+
 
 seek.addEventListener('input', function () {
-isSeeking = true;
+  isSeeking = true;
 });
+
 
 seek.addEventListener('change', function () {
-audio.currentTime = Number(seek.value);
+  audio.currentTime = Number(seek.value);
 
-isSeeking = false;
+  isSeeking = false;
 });
+
 
 function formatTime(sec) {
-if (!sec && sec !== 0) {
-return '0:00';
+  if (!sec && sec !== 0) {
+    return '0:00';
+  }
+
+  sec = Math.floor(sec);
+
+  const m = Math.floor(sec / 60);
+
+  const s = String(
+    sec % 60
+  ).padStart(2, '0');
+
+  return m + ':' + s;
 }
 
-sec = Math.floor(sec);
-
-const m = Math.floor(sec / 60);
-
-const s = String(
-sec % 60
-).padStart(2, '0');
-
-return m + ':' + s;
-}
 
 volume.addEventListener('input', function () {
-audio.volume = Number(volume.value);
+  audio.volume = Number(volume.value);
 });
+
 
 function isTrackLiked(track) {
-return liked.some(function (t) {
-return t.id === track.id;
-});
+  return liked.some(function (t) {
+    return t.id === track.id;
+  });
 }
+
 
 function refreshLikeButton() {
-const t = queue[currentIndex];
+  const t = queue[currentIndex];
 
-likeBtn.textContent =
-t && isTrackLiked(t)
-? 'LIKED'
-: 'LIKE';
+  likeBtn.textContent =
+    t && isTrackLiked(t)
+      ? 'LIKED'
+      : 'LIKE';
 }
+
 
 likeBtn.addEventListener('click', function () {
-const t = queue[currentIndex];
+  const t = queue[currentIndex];
 
-if (!t) return;
+  if (!t) return;
 
-if (isTrackLiked(t)) {
-liked = liked.filter(function (x) {
-return x.id !== t.id;
+  if (isTrackLiked(t)) {
+    liked = liked.filter(function (x) {
+      return x.id !== t.id;
+    });
+  } else {
+    liked.push(t);
+  }
+
+  try {
+    localStorage.setItem(
+      'huny-liked',
+      JSON.stringify(liked)
+    );
+  } catch (e) {
+    statusMsg.textContent =
+      'Could not save liked songs on this device.';
+  }
+
+  refreshLikeButton();
+
+  if (!likedView.hidden) {
+    renderGrid(
+      likedGrid,
+      liked,
+      currentHost
+    );
+  }
 });
-} else {
-liked.push(t);
-}
 
-try {
-localStorage.setItem(
-'huny-liked',
-JSON.stringify(liked)
-);
-} catch (e) {
-statusMsg.textContent =
-'Could not save liked songs on this device.';
-}
-
-refreshLikeButton();
-
-if (!likedView.hidden) {
-renderGrid(
-likedGrid,
-liked,
-currentHost
-);
-}
-});
 
 const navItems =
-document.querySelectorAll('.nav-item');
+  document.querySelectorAll('.nav-item');
+
 
 function setActiveNav(view) {
-navItems.forEach(function (btn) {
-btn.classList.toggle(
-'active',
-btn.getAttribute('data-view') === view
-);
-});
+  navItems.forEach(function (btn) {
+    btn.classList.toggle(
+      'active',
+      btn.getAttribute('data-view') === view
+    );
+  });
 }
 
+
 navItems.forEach(function (btn) {
-btn.addEventListener('click', function () {
-const view =
-btn.getAttribute('data-view');
+  btn.addEventListener('click', function () {
+    const view =
+      btn.getAttribute('data-view');
 
-```
-navItems.forEach(function (b) {
-  b.classList.remove('active');
+    navItems.forEach(function (b) {
+      b.classList.remove('active');
+    });
+
+    btn.classList.add('active');
+
+    homeView.hidden =
+      view !== 'home';
+
+    searchView.hidden =
+      view !== 'search';
+
+    likedView.hidden =
+      view !== 'liked';
+
+    if (view === 'liked') {
+      renderGrid(
+        likedGrid,
+        liked,
+        currentHost
+      );
+    }
+  });
 });
 
-btn.classList.add('active');
-
-homeView.hidden =
-  view !== 'home';
-
-searchView.hidden =
-  view !== 'search';
-
-likedView.hidden =
-  view !== 'liked';
-
-if (view === 'liked') {
-  renderGrid(
-    likedGrid,
-    liked,
-    currentHost
-  );
-}
-```
-
-});
-});
 
 document.body.setAttribute(
-'data-theme',
-localStorage.getItem('huny-theme') || 'dark'
+  'data-theme',
+  localStorage.getItem('huny-theme') || 'dark'
 );
+
 
 themeToggle.addEventListener('click', function () {
-const current =
-document.body.getAttribute('data-theme');
+  const current =
+    document.body.getAttribute('data-theme');
 
-const next =
-current === 'dark'
-? 'light'
-: 'dark';
+  const next =
+    current === 'dark'
+      ? 'light'
+      : 'dark';
 
-document.body.setAttribute(
-'data-theme',
-next
-);
+  document.body.setAttribute(
+    'data-theme',
+    next
+  );
 
-localStorage.setItem(
-'huny-theme',
-next
-);
+  localStorage.setItem(
+    'huny-theme',
+    next
+  );
 });
+
 
 document.addEventListener('keydown', function (e) {
-if (
-e.target.tagName === 'INPUT' ||
-e.target.tagName === 'TEXTAREA'
-) {
-return;
-}
+  if (
+    e.target.tagName === 'INPUT' ||
+    e.target.tagName === 'TEXTAREA'
+  ) {
+    return;
+  }
 
-if (e.code === 'Space') {
-e.preventDefault();
+  if (e.code === 'Space') {
+    e.preventDefault();
 
-```
-if (currentIndex === -1) {
-  return;
-}
+    if (currentIndex === -1) {
+      return;
+    }
 
-if (audio.paused) {
-  audio.play().catch(function () {});
-} else {
-  audio.pause();
-}
-```
+    if (audio.paused) {
+      audio.play().catch(function () {});
+    } else {
+      audio.pause();
+    }
+  }
 
-}
+  if (e.code === 'ArrowRight') {
+    step(1);
+  }
 
-if (e.code === 'ArrowRight') {
-step(1);
-}
-
-if (e.code === 'ArrowLeft') {
-step(-1);
-}
+  if (e.code === 'ArrowLeft') {
+    step(-1);
+  }
 });
 
-/*
-Load trending songs
-*/
+
 Api.trending()
-.then(function (result) {
-renderGrid(
-trendingGrid,
-result.data,
-result.host
-);
-})
-.catch(function () {
-trendingGrid.innerHTML =
-'<p style="color:#8c8d90">' +
-'Could not load trending songs. Refresh to retry.' +
-'</p>';
-});
+  .then(function (result) {
+    renderGrid(
+      trendingGrid,
+      result.data,
+      result.host
+    );
+  })
+  .catch(function () {
+    trendingGrid.innerHTML =
+      '<p style="color:#8c8d90">' +
+      'Could not load trending songs. Refresh to retry.' +
+      '</p>';
+  });
 
-/*
-Search
-*/
+
 let searchTimer;
 
 searchInput.addEventListener(
-'input',
-function () {
-clearTimeout(searchTimer);
-
-```
-const q =
-  searchInput.value.trim();
-
-if (!q) {
-  homeView.hidden = false;
-  searchView.hidden = true;
-
-  setActiveNav('home');
-
-  return;
-}
-
-searchTimer = setTimeout(
+  'input',
   function () {
-    homeView.hidden = true;
-    searchView.hidden = false;
+    clearTimeout(searchTimer);
 
-    setActiveNav('search');
+    const q =
+      searchInput.value.trim();
 
-    searchHeading.textContent =
-      'Results for "' + q + '"';
+    if (!q) {
+      homeView.hidden = false;
+      searchView.hidden = true;
 
-    resultsGrid.innerHTML =
-      '<p style="color:#8c8d90">' +
-      'Searching...' +
-      '</p>';
+      setActiveNav('home');
 
-    Api.search(q)
-      .then(function (result) {
-        if (!result.data.length) {
-          resultsGrid.innerHTML =
-            '<p style="color:#8c8d90">' +
-            'No results for "' +
-            escapeHtml(q) +
-            '". Audius mainly features independent/emerging artists rather than major-label commercial releases. Try an independent artist name or a genre like "lofi" or "hindi indie".' +
-            '</p>';
-        } else {
-          renderGrid(
-            resultsGrid,
-            result.data,
-            result.host
-          );
-        }
-      })
-      .catch(function () {
+      return;
+    }
+
+    searchTimer = setTimeout(
+      function () {
+        homeView.hidden = true;
+        searchView.hidden = false;
+
+        setActiveNav('search');
+
+        searchHeading.textContent =
+          'Results for "' + q + '"';
+
         resultsGrid.innerHTML =
           '<p style="color:#8c8d90">' +
-          'Search failed. Try again.' +
+          'Searching...' +
           '</p>';
-      });
-  },
-  400
-);
-```
 
-}
+        Api.search(q)
+          .then(function (result) {
+            if (!result.data.length) {
+              resultsGrid.innerHTML =
+                '<p style="color:#8c8d90">' +
+                'No results for "' +
+                escapeHtml(q) +
+                '". Audius mainly features independent/emerging artists rather than major-label commercial releases. Try an independent artist name or a genre like "lofi" or "hindi indie".' +
+                '</p>';
+            } else {
+              renderGrid(
+                resultsGrid,
+                result.data,
+                result.host
+              );
+            }
+          })
+          .catch(function () {
+            resultsGrid.innerHTML =
+              '<p style="color:#8c8d90">' +
+              'Search failed. Try again.' +
+              '</p>';
+          });
+      },
+      400
+    );
+  }
 );
